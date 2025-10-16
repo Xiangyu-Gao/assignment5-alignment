@@ -28,3 +28,9 @@ Initially, all tests should fail with `NotImplementedError`s.
 To connect your implementation to the tests, complete the
 functions in [./tests/adapters.py](./tests/adapters.py).
 
+
+## Download the model
+
+```
+uv run python scripts/download_model.py   --repo-id Qwen/Qwen2.5-Math-1.5B   --save-dir ./data/models/Qwen2.5-Math-1.5B   --method snapshot --no-symlinks --verify
+```
