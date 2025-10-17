@@ -1,5 +1,7 @@
 import torch
 
+from transformers import PreTrainedModel
+
 
 def tokenize_prompt_and_output(prompt_strs, output_strs, tokenizer):
     """
@@ -59,3 +61,75 @@ def tokenize_prompt_and_output(prompt_strs, output_strs, tokenizer):
         "labels": batch_labels,
         "response_mask": batch_response_masks
     }
+
+
+def compute_entropy(logits: torch.Tensor) -> torch.Tensor:
+    """
+    Get the entropy of the next-token predictions (i.e., entropy over the vocabulary dimension).
+    Args:
+        logits: torch.Tensor Tensor of shape (batch_size, sequence_length, vocab_size)
+        containing unnormalized logits.
+        Returns:
+        torch.Tensor Shape (batch_size, sequence_length). The entropy for each next-token
+        prediction.
+    """
+    # use a numerically stable method (e.g., using logsumexp) to avoid overflow
+    probs = torch.softmax(logits, dim=-1)
+    log_probs = torch.log(probs + 1e-12)  # add a small constant to avoid log(0)
+    entropy = -torch.sum(probs * log_probs, dim=-1)
+    return entropy
+
+
+def get_response_log_probs(model: PreTrainedModel, input_ids: torch.Tensor, labels: torch.Tensor, return_token_entropy: bool = False) -> dict[str, torch.Tensor]:
+    """
+    Args:
+        model: PreTrainedModel HuggingFace model used for scoring (placed on the correct device
+        and in inference mode if gradients should not be computed).
+        
+        input_ids: torch.Tensor shape (batch_size, sequence_length), concatenated prompt +
+        response tokens as produced by your tokenization method.
+        
+        labels: torch.Tensor shape (batch_size, sequence_length), labels as produced by your
+        tokenization method.
+        
+        return_token_entropy: bool If True, also return per-token entropy by calling
+        compute_entropy.
+    Returns:
+        dict[str, torch.Tensor].
+            "log_probs" shape (batch_size, sequence_length), conditional log-probabilities
+            log pθ (yt | x<t ).
+            "token_entropy" optional, shape (batch_size, sequence_length), per-token entropy
+            for each position (present only if return_token_entropy=True).
+    """
+    logits = model(input_ids).logits  # (batch_size, sequence_length, vocab_size)
+
+    log_prob = torch.log_softmax(logits, dim=-1)  # (batch_size, sequence_length, vocab_size)
+    label_token_log_softmax = torch.gather(log_prob, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)  # (batch_size, sequence_length)
+
+    if return_token_entropy:
+        token_entropy = compute_entropy(logits)  # (batch_size, sequence_length)
+        return {
+            "log_probs": label_token_log_softmax,
+            "token_entropy": token_entropy
+        }
+    else:
+        return {
+            "log_probs": label_token_log_softmax
+        }
+
+
+def masked_normalize(tensor: torch.Tensor, mask: torch.Tensor, normalize_constant: float, dim: int | None = None) -> torch.Tensor:
+    """
+    Sum over a dimension and normalize by a constant, considering only those elements where mask == 1.
+    Args:
+        tensor: torch.Tensor The tensor to sum and normalize.
+        mask: torch.Tensor Same shape as tensor; positions with 1 are included in the sum.
+        normalize_constant: float the constant to divide by for normalization.
+        dim: int | None the dimension to sum along before normalization. If None, sum over all dimensions.
+    Returns:
+        torch.Tensor the normalized sum, where masked elements (mask == 0) don’t contribute to the sum.
+    """
+    masked_tensor = tensor * mask
+    summed = torch.sum(masked_tensor, dim=dim)
+    normalized = summed / normalize_constant
+    return normalized
