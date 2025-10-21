@@ -1,4 +1,5 @@
 import json
+import torch
 
 from typing import Callable, List, Union
 from vllm import LLM, SamplingParams
@@ -60,7 +61,8 @@ def main(
 ):
     print_color(f"Eavluating {model_name} on {data_path}")
 
-    vllm_model = LLM(model_name, dtype="half")
+    vllm_model = LLM(model_name, dtype=torch.float16)
+    # make this change as my gpu does not support bfloat16
 
     sampling_params = SamplingParams(
         temperature=temperature,
