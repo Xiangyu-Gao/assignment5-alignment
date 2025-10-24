@@ -1,8 +1,15 @@
 import time
+import gc
+import torch
 import regex as re
 
-
 from pathlib import Path
+
+
+def clear():
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.cuda.ipc_collect()
 
 
 def print_color(text: str, color: str = "red"):
@@ -35,3 +42,12 @@ def save_model_and_tokenizer(model, tokenizer, config):
     tokenizer.save_pretrained(out_dir)
 
     print(f"Model and tokenizer saved to {out_dir}")
+
+
+def cycle_dataloader(dataloader):
+    """
+    Creates a cycling iterator for a PyTorch DataLoader.
+    """
+    while True:
+        for batch in dataloader:
+            yield batch

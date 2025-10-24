@@ -14,12 +14,13 @@ from cs336_alignment.sft_utils import (
     masked_normalize,
     sft_microbatch_train_step,
 )
-from cs336_alignment.grpo_utils import (
+from cs336_alignment.grpo import (
     compute_group_normalized_rewards,
     compute_naive_policy_gradient_loss,
     compute_grpo_clip_loss,
     compute_policy_gradient_loss,
     masked_mean,
+    grpo_microbatch_train_step,
 )
 
 
@@ -277,7 +278,16 @@ def run_grpo_microbatch_train_step(
         tuple[torch.Tensor, dict[str, torch.Tensor]]: 
             the policy gradient loss and its metadata.
     """
-    raise NotImplementedError
+    return grpo_microbatch_train_step(
+        policy_log_probs,
+        response_mask,
+        gradient_accumulation_steps,
+        loss_type,
+        raw_rewards,
+        advantages,
+        old_log_probs,
+        cliprange,
+    )
 
 
 def run_masked_normalize(

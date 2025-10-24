@@ -1,6 +1,6 @@
 import torch
 
-from typing import Callable
+from typing import Callable, Literal
 
 
 def compute_group_normalized_rewards(
@@ -188,3 +188,53 @@ def masked_mean(tensor: torch.Tensor, mask: torch.Tensor, dim: int | None = None
     mean_masked = sum_masked / count_nonmasked
     
     return mean_masked
+
+
+def grpo_microbatch_train_step(
+        policy_log_probs: torch.Tensor,
+        response_mask: torch.Tensor,
+        gradient_accumulation_steps: int,
+        loss_type: Literal["no_baseline", "reinforce_with_baseline", "grpo_clip"],
+        raw_rewards: torch.Tensor | None = None,
+        advantages: torch.Tensor | None = None,
+        old_log_probs: torch.Tensor | None = None,
+        cliprange: float | None = None,
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    """Compute the policy gradient loss and backprop its gradients for a microbatch.
+
+    Args:
+        policy_log_probs: torch.Tensor of shape (batch_size, sequence_length): 
+            the log-probs of the policy.
+        response_mask: torch.Tensor of shape (batch_size, sequence_length): 
+            the mask for the response.
+        gradient_accumulation_steps: int, the number of gradient accumulation steps.
+        loss_type: Literal["no_baseline", "reinforce_with_baseline", "grpo_clip"], 
+            the type of loss function to use.
+        raw_rewards: torch.Tensor | None, the raw rewards for each rollout response.
+            Needed for loss_type="no_baseline".
+        advantages: torch.Tensor | None, the advantages for each rollout response.
+            Needed for loss_type in {"reinforce_with_baseline", "grpo_clip"}.
+        old_log_probs: torch.Tensor | None, the log-probs of the old policy.
+            Needed for loss_type="grpo_clip".
+        cliprange: float | None, the clip range for the ratio. 
+            Needed for loss_type="grpo_clip".
+        constant_normalize_factor: int | None, provided if we want to sum over 
+            the sequence dimension and normalize by this constant factor
+            (as in Dr. GRPO).
+
+    Returns:
+        tuple[torch.Tensor, dict[str, torch.Tensor]]: 
+            the policy gradient loss and its metadata.
+    """
+    loss, metadata = compute_policy_gradient_loss(
+        policy_log_probs,
+        loss_type,
+        raw_rewards,
+        advantages,
+        old_log_probs,
+        cliprange,
+    )   # (batch_size, sequence_length)
+    masked_loss = masked_mean(loss, response_mask, dim=1)  # (batch_size,)
+    mean_loss = torch.mean(masked_loss) / gradient_accumulation_steps  # scalar
+    mean_loss.backward()
+    return mean_loss, metadata
