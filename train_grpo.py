@@ -304,10 +304,11 @@ def train_grpo(
     vllm: LLM,
 ):
     wandb.init(
-        entity=os.getenv("WANDB_ENTITY"),
+        entity="xygaoece-university-of-washington",
         project="cs336-alignment-grpo",
         config={"train": asdict(train_config), "eval": asdict(eval_config)},
         name=get_run_name("grpo", train_config),
+        reinit=True,
     )
     wandb.define_metric("train_step")
     wandb.define_metric("eval_step")
@@ -394,7 +395,7 @@ def train_grpo(
             repeated_ground_truths=all_answers,
             group_size=train_config.group_size,
             advantage_eps=train_config.advantage_eps,
-            normalized_by_std=train_config.use_std_normalization,
+            normalize_by_std=train_config.use_std_normalization,
         )
 
         global_step = update_policy(

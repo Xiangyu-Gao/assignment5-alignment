@@ -217,7 +217,7 @@ def train_sft_model(
     evaluate: bool = True,
 ):
     wandb.init(
-        entity=os.getenv("WANDB_ENTITY"),
+        entity="xygaoece-university-of-washington",
         project="cs336-alignment-sft",
         config={
             "train": asdict(train_config),
