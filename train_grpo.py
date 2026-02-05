@@ -357,7 +357,7 @@ def train_grpo(
     cycled_dataloader = cycle_dataloader(base_dl)
 
     global_step = 0
-    for grpo_step in range(train_config.n_grpo_steps):
+    for grpo_step in trange(train_config.n_grpo_steps, desc="GRPO Training"):
         # (3): Sample a batch of questions from dataset
         sample_batch = next(cycled_dataloader)
         # sample_prompts, sample_cots, sample_answers = zip(*sample_batch)
